@@ -56,6 +56,14 @@ function getStreams(tmdbId, mediaType, season, episode) {
 module.exports = { getStreams: getStreams };
 `;
 
+// Nuvio runs providers on Hermes, which can't run async/await in dynamically loaded code: lower the
+// bundle to ES2016 (async -> generators, object spread etc.), the same target Nuvio's own build uses.
+const esbuild = require("esbuild");
+const lowered = esbuild.transformSync(out, { target: "es2016", format: "cjs", legalComments: "inline" }).code;
+if (/\basync\s+(?:function|\(|[A-Za-z_$][\w$]*\s*=>)|\bawait\s/.test(lowered.replace(/\/\/.*$/gm, ""))) {
+  throw new Error("async/await survived transpilation");
+}
+
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
-fs.writeFileSync(OUT, out);
-console.log(`built ${path.relative(ROOT, OUT)}: ${modules.length} modules, ${(out.length / 1024).toFixed(1)} KB`);
+fs.writeFileSync(OUT, lowered);
+console.log(`built ${path.relative(ROOT, OUT)}: ${modules.length} modules, ${(lowered.length / 1024).toFixed(1)} KB (es2016)`);
