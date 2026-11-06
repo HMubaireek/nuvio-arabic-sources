@@ -71,7 +71,8 @@ function toStream(src, r, streamTitle) {
 
 async function getStreams(tmdbId, mediaType, seasonNum, episodeNum, opts) {
   const o = opts || {};
-  const type = mediaType === "tv" ? "tv" : "movie";
+  // Nuvio passes "tv"; accept the other spellings clients use for shows too
+  const type = /^(?:tv|series|show|tvshow|episode)$/i.test(String(mediaType || "")) ? "tv" : "movie";
   const season = type === "tv" ? +seasonNum || 1 : null;
   const episode = type === "tv" ? +episodeNum || 1 : null;
   const log = logger("hub");
