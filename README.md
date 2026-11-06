@@ -6,8 +6,13 @@ format (`[{ name, title, url, quality, headers }]`).
 
 ## Install in Nuvio
 
-Settings → Plugins / Local scrapers → add repository → paste the raw URL of this repo's `manifest.json`
-(for example `https://raw.githubusercontent.com/<you>/nuvio-arabic-sources/main/manifest.json`), then enable **Arab Hub**.
+Settings → Plugins / Local scrapers → add repository → paste
+
+```
+https://raw.githubusercontent.com/HMubaireek/nuvio-arabic-sources/main/manifest.json
+```
+
+then enable **Arab Hub**.
 
 ## Sources
 
