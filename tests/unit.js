@@ -43,8 +43,9 @@ t("host page scan: jwplayer, streamwish hls2, mixdrop, junk filtered", () => {
   const a = findMedia('jwplayer("x").setup({sources:[{file:"https://c.x/hls/abc/master.m3u8"}],image:"https://c.x/thumb.jpg"})', "https://h.x/e/1");
   assert.deepStrictEqual(a.map((x) => x.url), ["https://c.x/hls/abc/master.m3u8"]);
   const b = findMedia('var links={"hls4":"/stream/abc/master.m3u8","hls2":"https://cdn.y/hls2/01/x_n/master.m3u8?t=1"}', "https://sw.y/e/1");
-  assert.strictEqual(b[0].url, "https://cdn.y/hls2/01/x_n/master.m3u8?t=1");
-  assert.strictEqual(b[1].url, "https://sw.y/stream/abc/master.m3u8");
+  // hls4 (embed's own domain) before the hls2 CDN, which can hang
+  assert.strictEqual(b[0].url, "https://sw.y/stream/abc/master.m3u8");
+  assert.strictEqual(b[1].url, "https://cdn.y/hls2/01/x_n/master.m3u8?t=1");
   const c = findMedia('MDCore.ref="x";MDCore.wurl="//s1.mxcontent.net/v2/abc.mp4?s=1";file="abc.mp4"', "https://mixdrop.ps/e/1");
   assert.deepStrictEqual(c.map((x) => x.url), ["https://s1.mxcontent.net/v2/abc.mp4?s=1"]);
   const d = findMedia('let streamUrl = "https://cdn2.z.shop/?token=abc";', "https://a4u/x");

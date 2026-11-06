@@ -1,6 +1,6 @@
 {
   "name": "nuvio-arabic-sources",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "Arab Hub - Nuvio local scraper aggregating Arabic movie/TV sources",
   "scripts": {

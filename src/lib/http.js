@@ -11,7 +11,9 @@ const sleep = (ms) => (HAS_TIMERS ? new Promise((r) => setTimeout(r, ms)) : Prom
 
 // request-wide deadline: once passed, no new HTTP request starts (works without timers)
 let deadline = 0;
-const setDeadline = (ms) => { deadline = ms ? Date.now() + ms : 0; };
+// hosts that failed at the network level during this getStreams call (blocked / dead mirrors)
+let deadHosts = {};
+const setDeadline = (ms) => { deadline = ms ? Date.now() + ms : 0; deadHosts = {}; };
 const pastDeadline = () => deadline > 0 && Date.now() > deadline;
 
 // Every finished request (ok or failed) "ticks". Without timers this is the only moment code gets to
@@ -111,12 +113,18 @@ async function request(url, opts) {
     const c = o.jar.header();
     if (c) headers.Cookie = c;
   }
-  const tries = (o.retries == null ? 1 : o.retries) + 1;
+  // Nuvio runs a plugin's fetches one at a time and has no timers: a retry can't wait for anything, so
+  // it only costs another full round trip. Retries are for Node (tests / timer-capable runtimes).
+  const tries = (HAS_TIMERS ? (o.retries == null ? 1 : o.retries) : 0) + 1;
+  const host = hostOf(url);
+  if (deadHosts[host]) throw new Error(`${host} unreachable (earlier failure)`);
   let lastErr = null;
   for (let i = 0; i < tries; i++) {
     if (pastDeadline()) throw lastErr || new Error("time budget used up");
     try {
-      const res = await withTimeout(fetch(safeUrl(url), { method: o.method || (body ? "POST" : "GET"), headers, body }), o.timeout || 12000, hostOf(url));
+      const res = await withTimeout(fetch(safeUrl(url), { method: o.method || (body ? "POST" : "GET"), headers, body }), o.timeout || 12000, host);
+      // Nuvio's fetch resolves with status 0 (instead of throwing) when DNS fails or the TLS is reset
+      if (!res || !res.status) throw new Error(`network error (status 0) ${host}`);
       if (o.jar) o.jar.take(res);
       // rate limited (FaselHD answers 429 after a burst): wait as told (capped) and try again
       if ((res.status === 429 || res.status === 503) && i + 1 < tries) {
@@ -133,6 +141,8 @@ async function request(url, opts) {
       if (i + 1 < tries) await sleep(300 + 400 * i);
     }
   }
+  // network-level failure (DNS, reset, status 0): remember the host for the rest of this request
+  if (lastErr && !pastDeadline()) deadHosts[host] = true;
   throw lastErr || new Error("request failed");
 }
 
@@ -164,6 +174,7 @@ function mirrorSite(cfg) {
     const mk = o.marker === undefined ? marker : o.marker;
     const errors = [];
     for (const base of order()) {
+      if (pastDeadline()) break;
       try {
         const r = await request(base + path, Object.assign({}, o, { referer: o.referer || base + "/" }));
         const real = !mk || mk.test(r.text);

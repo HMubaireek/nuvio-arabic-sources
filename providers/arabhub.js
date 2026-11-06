@@ -29,7 +29,38 @@ var __mods = [
     const EMBED_BUDGET = 14e3;
     const TOTAL_BUDGET = 4e4;
     const MAX_EMBEDS_PER_SOURCE = 8;
-    const NO_TIMER_DEADLINE = 22e3;
+    const NO_TIMER_DEADLINE = 35e3;
+    const SERIAL_EMBEDS_PER_SOURCE = 5;
+    const GOOD_HOSTS = /okhd|okprime|vidmoly|vidtube|cdn-video|uqload|miravd|streamwish|updown|vtbe|vtube|mixdrop|mxdrop|faselhd|scdns|anime4up|gnli129|3ick|asd\.watch|arabseed/i;
+    const POOR_HOSTS = /voe\.|reviewrate|filemoon|dood|d0o0d|dsvplay|streamtape|mp4upload|vk\.com|earnvids|vidspeed|film77|vidoba|share4max|uptostream|ok\.ru|vadbam|anime7u/i;
+    function hostPreference(l) {
+      if (/direct/i.test(l.label || ""))
+        return 0;
+      const h = String(l.embed || "");
+      if (GOOD_HOSTS.test(h))
+        return 1;
+      if (POOR_HOSTS.test(h))
+        return 5;
+      return 3;
+    }
+    function serialOrder(active, info) {
+      let first;
+      if (info.isAnime)
+        first = ["anime4up", "faselhd", "witanime"];
+      else if (info.isTurkish)
+        first = ["3isk", "laroza", "arabseed"];
+      else if (info.isArabic)
+        first = ["laroza", "arabseed", "akwam"];
+      else
+        first = ["faselhd", "topcinema", "arabseed", "laroza"];
+      const rank = (s) => {
+        const i = first.indexOf(s.id);
+        if (i >= 0)
+          return i;
+        return s.id === "akwam" ? 99 : 50;
+      };
+      return active.slice().sort((a, b) => rank(a) - rank(b));
+    }
     const pad2 = (n) => String(n).padStart(2, "0");
     const logger = (tag) => (...a) => console.log(`[ArabHub:${tag}]`, ...a);
     function pool(items, limit, fn) {
@@ -63,7 +94,7 @@ var __mods = [
           return [];
         }
         const direct = links.filter((l) => l.url);
-        const embeds = links.filter((l) => l.embed).slice(0, MAX_EMBEDS_PER_SOURCE);
+        const embeds = links.filter((l) => l.embed).map((l, i) => ({ l, i, p: hostPreference(l) })).sort((a, b) => a.p - b.p || a.i - b.i).map((x) => x.l).slice(0, HAS_TIMERS ? MAX_EMBEDS_PER_SOURCE : SERIAL_EMBEDS_PER_SOURCE);
         const results = direct.map((l) => ({ url: l.url, q: snapHeight(l.q || qualityFrom(l.quality || l.url)), headers: l.headers || {}, host: l.host || src.name, label: l.label }));
         results.forEach((r) => sink && sink(src, r));
         yield pool(embeds, 4, (l) => __async(this, null, function* () {
@@ -121,6 +152,16 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
         log(`${streamTitle}: ${active.map((s) => s.id).join(", ")}`);
         const collected = [];
         const sink = (src, r) => collected.push(toStream(src, r, streamTitle));
+        if (!HAS_TIMERS) {
+          for (const s of serialOrder(active, info)) {
+            if (pastDeadline()) {
+              log(`deadline reached before ${s.id}`);
+              break;
+            }
+            yield runSource(s, base, sink);
+          }
+          return finish(collected, active);
+        }
         const all = Promise.all(active.map((s) => runSource(s, base, sink)));
         let stopTicks = () => {
         };
@@ -139,13 +180,16 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
         } finally {
           stopTicks();
         }
-        const seen = {};
-        const order = {};
-        active.forEach((s, i) => {
-          order[s.id] = i;
-        });
-        return collected.filter((s) => seen[s.url] ? false : seen[s.url] = true).sort((a, b) => (parseInt(b.quality, 10) || 0) - (parseInt(a.quality, 10) || 0) || order[a.source] - order[b.source]);
+        return finish(collected, active);
       });
+    }
+    function finish(collected, active) {
+      const seen = {};
+      const order = {};
+      active.forEach((s, i) => {
+        order[s.id] = i;
+      });
+      return collected.filter((s) => seen[s.url] ? false : seen[s.url] = true).sort((a, b) => (parseInt(b.quality, 10) || 0) - (parseInt(a.quality, 10) || 0) || order[a.source] - order[b.source]);
     }
     module2.exports = { getStreams: getStreams2, runSource, SOURCES };
   },
@@ -220,8 +264,10 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
     const HAS_TIMERS = typeof setTimeout === "function";
     const sleep = (ms) => HAS_TIMERS ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve();
     let deadline = 0;
+    let deadHosts = {};
     const setDeadline = (ms) => {
       deadline = ms ? Date.now() + ms : 0;
+      deadHosts = {};
     };
     const pastDeadline = () => deadline > 0 && Date.now() > deadline;
     const tickers = [];
@@ -349,13 +395,18 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
           if (c)
             headers.Cookie = c;
         }
-        const tries = (o.retries == null ? 1 : o.retries) + 1;
+        const tries = (HAS_TIMERS ? o.retries == null ? 1 : o.retries : 0) + 1;
+        const host = hostOf(url);
+        if (deadHosts[host])
+          throw new Error(`${host} unreachable (earlier failure)`);
         let lastErr = null;
         for (let i = 0; i < tries; i++) {
           if (pastDeadline())
             throw lastErr || new Error("time budget used up");
           try {
-            const res = yield withTimeout(fetch(safeUrl(url), { method: o.method || (body ? "POST" : "GET"), headers, body }), o.timeout || 12e3, hostOf(url));
+            const res = yield withTimeout(fetch(safeUrl(url), { method: o.method || (body ? "POST" : "GET"), headers, body }), o.timeout || 12e3, host);
+            if (!res || !res.status)
+              throw new Error(`network error (status 0) ${host}`);
             if (o.jar)
               o.jar.take(res);
             if ((res.status === 429 || res.status === 503) && i + 1 < tries) {
@@ -373,6 +424,8 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
               yield sleep(300 + 400 * i);
           }
         }
+        if (lastErr && !pastDeadline())
+          deadHosts[host] = true;
         throw lastErr || new Error("request failed");
       });
     }
@@ -402,6 +455,8 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
           const mk = o.marker === void 0 ? marker : o.marker;
           const errors = [];
           for (const base of order()) {
+            if (pastDeadline())
+              break;
             try {
               const r = yield request(base + path, Object.assign({}, o, { referer: o.referer || base + "/" }));
               const real = !mk || mk.test(r.text);
@@ -511,10 +566,10 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       const hls = {};
       while (m = hlsRe.exec(js))
         hls[m[1]] = m[2];
-      if (hls.hls2)
-        push(hls.hls2);
       if (hls.hls4)
         push(hls.hls4);
+      if (hls.hls2)
+        push(hls.hls2);
       const fileRe = /(?:file|src|source|video_url|videoUrl|stream_url|streamUrl)\s*["']?\s*[:=]\s*["']([^"']+?\.(?:m3u8|mp4|mkv)[^"']*)["']/gi;
       while (m = fileRe.exec(js))
         push(m[1]);
@@ -680,17 +735,22 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
     function finalize(list, host) {
       return __async(this, null, function* () {
         const out = [];
-        yield Promise.all((list || []).map((x) => __async(this, null, function* () {
+        let haveHls = false;
+        for (const x of list || []) {
           let q = x.q || 0;
-          if (x.hls || /\.m3u8|\/hls\d?\/|master|\.txt(?:\?|$)/i.test(x.url) && !/\.mp4(?:\?|$)/i.test(x.url)) {
+          const isHls = x.hls || /\.m3u8|\/hls\d?\/|master|\.txt(?:\?|$)/i.test(x.url) && !/\.mp4(?:\?|$)/i.test(x.url);
+          if (isHls) {
+            if (haveHls)
+              continue;
             const p = yield probeHls(x.url, x.headers);
             if (!p)
-              return;
+              continue;
+            haveHls = true;
             q = q || p.height;
           }
           q = snapHeight(q);
           out.push({ url: x.url, q, quality: qLabel(q), headers: x.headers, host: shortHost(host) });
-        })));
+        }
         return out;
       });
     }
@@ -880,6 +940,9 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
     module2.exports = {
       id: "akwam",
       name: "Akwam",
+      // disabled 2026-11-06: DNS-blocked + SNI-reset on the user's network (works only intermittently).
+      // Re-enable by deleting this line; `node tests/live.js akwam` still runs it on demand.
+      enabled: false,
       types: ["movie", "tv"],
       bases: ["https://akwam.ss", "https://ak.sv", "https://akwam.to", "https://akwam.it", "https://akwam.net", "https://akw.to"],
       links(ctx) {

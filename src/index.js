@@ -10,9 +10,37 @@ const SOURCE_BUDGET = 28000;   // search + page walking for one source
 const EMBED_BUDGET = 14000;    // one embed host
 const TOTAL_BUDGET = 40000;    // whole request; whatever resolved by then is returned
 const MAX_EMBEDS_PER_SOURCE = 8;
-// without timers (Nuvio) nothing can cut a slow request short, so stop *starting* requests earlier;
-// in-flight ones end at Nuvio's own fetch timeout
-const NO_TIMER_DEADLINE = 22000;
+// Nuvio (no timers, one fetch at a time): sources run one after another, best first for the title,
+// and nothing new starts after this deadline; in-flight requests end at Nuvio's own fetch timeout
+const NO_TIMER_DEADLINE = 35000;
+const SERIAL_EMBEDS_PER_SOURCE = 5;
+
+// 0 = site's own direct server, 1 = hosts that resolved in live tests, 3 = unknown, 5 = usually blocked,
+// captcha-gated or dead on filtered networks
+const GOOD_HOSTS = /okhd|okprime|vidmoly|vidtube|cdn-video|uqload|miravd|streamwish|updown|vtbe|vtube|mixdrop|mxdrop|faselhd|scdns|anime4up|gnli129|3ick|asd\.watch|arabseed/i;
+const POOR_HOSTS = /voe\.|reviewrate|filemoon|dood|d0o0d|dsvplay|streamtape|mp4upload|vk\.com|earnvids|vidspeed|film77|vidoba|share4max|uptostream|ok\.ru|vadbam|anime7u/i;
+function hostPreference(l) {
+  if (/direct/i.test(l.label || "")) return 0;
+  const h = String(l.embed || "");
+  if (GOOD_HOSTS.test(h)) return 1;
+  if (POOR_HOSTS.test(h)) return 5;
+  return 3;
+}
+
+// which sources to try first when they have to run one by one
+function serialOrder(active, info) {
+  let first;
+  if (info.isAnime) first = ["anime4up", "faselhd", "witanime"];
+  else if (info.isTurkish) first = ["3isk", "laroza", "arabseed"];
+  else if (info.isArabic) first = ["laroza", "arabseed", "akwam"];
+  else first = ["faselhd", "topcinema", "arabseed", "laroza"];
+  const rank = (s) => {
+    const i = first.indexOf(s.id);
+    if (i >= 0) return i;
+    return s.id === "akwam" ? 99 : 50; // akwam is blocked on many networks: last
+  };
+  return active.slice().sort((a, b) => rank(a) - rank(b));
+}
 
 const pad2 = (n) => String(n).padStart(2, "0");
 const logger = (tag) => (...a) => console.log(`[ArabHub:${tag}]`, ...a);
@@ -43,7 +71,12 @@ async function runSource(src, base, sink) {
     return [];
   }
   const direct = links.filter((l) => l.url);
-  const embeds = links.filter((l) => l.embed).slice(0, MAX_EMBEDS_PER_SOURCE);
+  // hosts that reliably resolve go first, so a capped embed list isn't spent on blocked/captcha hosts
+  const embeds = links.filter((l) => l.embed)
+    .map((l, i) => ({ l, i, p: hostPreference(l) }))
+    .sort((a, b) => a.p - b.p || a.i - b.i)
+    .map((x) => x.l)
+    .slice(0, HAS_TIMERS ? MAX_EMBEDS_PER_SOURCE : SERIAL_EMBEDS_PER_SOURCE);
   const results = direct.map((l) => ({ url: l.url, q: snapHeight(l.q || qualityFrom(l.quality || l.url)), headers: l.headers || {}, host: l.host || src.name, label: l.label }));
   results.forEach((r) => sink && sink(src, r));
   await pool(embeds, 4, async (l) => {
@@ -100,6 +133,16 @@ async function getStreams(tmdbId, mediaType, seasonNum, episodeNum, opts) {
 
   const collected = [];
   const sink = (src, r) => collected.push(toStream(src, r, streamTitle));
+
+  if (!HAS_TIMERS) {
+    // one source at a time; every resolved stream is kept, the deadline only stops new work
+    for (const s of serialOrder(active, info)) {
+      if (pastDeadline()) { log(`deadline reached before ${s.id}`); break; }
+      await runSource(s, base, sink);
+    }
+    return finish(collected, active);
+  }
+
   const all = Promise.all(active.map((s) => runSource(s, base, sink)));
   // finish when every source is done, or - checked on each finished request, which also works without
   // timers - once the deadline has passed (hung requests keep running in the background, ignored)
@@ -115,7 +158,11 @@ async function getStreams(tmdbId, mediaType, seasonNum, episodeNum, opts) {
   } finally {
     stopTicks();
   }
+  return finish(collected, active);
+}
 
+// dedupe by URL, best quality first, source priority as tie-break
+function finish(collected, active) {
   const seen = {};
   const order = {};
   active.forEach((s, i) => { order[s.id] = i; });

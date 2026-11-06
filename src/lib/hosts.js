@@ -66,8 +66,9 @@ function findMedia(html, pageUrl) {
   const hlsRe = /["']?(hls[234])["']?\s*:\s*["']([^"']+)["']/g;
   const hls = {};
   while ((m = hlsRe.exec(js))) hls[m[1]] = m[2];
-  if (hls.hls2) push(hls.hls2);
+  // hls4 lives on the embed's own domain; the hls2 CDN (premilkyway...) can hang for 30 s
   if (hls.hls4) push(hls.hls4);
+  if (hls.hls2) push(hls.hls2);
   // jwplayer / clappr / plyr configs
   const fileRe = /(?:file|src|source|video_url|videoUrl|stream_url|streamUrl)\s*["']?\s*[:=]\s*["']([^"']+?\.(?:m3u8|mp4|mkv)[^"']*)["']/gi;
   while ((m = fileRe.exec(js))) push(m[1]);
@@ -217,18 +218,25 @@ async function resolve(embedUrl, referer, depth) {
   return [];
 }
 
+// One embed's playlists are alternates of the same video (streamwish hls4/hls2, uqload master + vtt
+// junk...): probe them in order and keep the first that answers. Probing all of them in parallel was
+// free in Node, but Nuvio runs fetches one at a time, so a hanging mirror cost a full 30 s timeout.
 async function finalize(list, host) {
   const out = [];
-  await Promise.all((list || []).map(async (x) => {
+  let haveHls = false;
+  for (const x of list || []) {
     let q = x.q || 0;
-    if (x.hls || (/\.m3u8|\/hls\d?\/|master|\.txt(?:\?|$)/i.test(x.url) && !/\.mp4(?:\?|$)/i.test(x.url))) {
+    const isHls = x.hls || (/\.m3u8|\/hls\d?\/|master|\.txt(?:\?|$)/i.test(x.url) && !/\.mp4(?:\?|$)/i.test(x.url));
+    if (isHls) {
+      if (haveHls) continue;
       const p = await probeHls(x.url, x.headers);
-      if (!p) return; // dead / blocked playlist
+      if (!p) continue; // dead / blocked playlist: try the next alternate
+      haveHls = true;
       q = q || p.height;
     }
     q = snapHeight(q);
     out.push({ url: x.url, q, quality: qLabel(q), headers: x.headers, host: shortHost(host) });
-  }));
+  }
   return out;
 }
 

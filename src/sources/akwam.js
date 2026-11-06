@@ -40,6 +40,9 @@ function sourcesIn(html, pageUrl) {
 module.exports = {
   id: "akwam",
   name: "Akwam",
+  // disabled 2026-11-06: DNS-blocked + SNI-reset on the user's network (works only intermittently).
+  // Re-enable by deleting this line; `node tests/live.js akwam` still runs it on demand.
+  enabled: false,
   types: ["movie", "tv"],
   bases: ["https://akwam.ss", "https://ak.sv", "https://akwam.to", "https://akwam.it", "https://akwam.net", "https://akw.to"],
 

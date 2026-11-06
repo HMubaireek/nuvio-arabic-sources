@@ -9,16 +9,31 @@ const nodeFetch = require("node-fetch");
 
 const code = fs.readFileSync(path.join(__dirname, "..", "providers", "arabhub.js"), "utf8");
 
-// Nuvio-like fetch: plain response object (status, url, headers.get, text, json) - no headers.raw()
+// Nuvio-like fetch, as seen in the TV's logcat:
+//  - one request at a time per plugin (the next fetch starts only after the previous one finished)
+//  - network errors (DNS, TLS reset) resolve with status 0 instead of rejecting
+//  - plain response object (status, url, headers.get, text, json) - no headers.raw()
+//  - its own 30 s timeout (requests here are capped at 30 s too)
+let queue = Promise.resolve();
+const stats = { requests: 0 };
 function nuvioFetch(url, init) {
-  return nodeFetch(url, init).then((res) => ({
-    status: res.status,
-    ok: res.ok,
-    url: res.url,
-    headers: { get: (k) => res.headers.get(k) },
-    text: () => res.text(),
-    json: () => res.json(),
-  }));
+  const run = () => {
+    stats.requests++;
+    return nodeFetch(url, Object.assign({ timeout: 30000 }, init)).then(
+      (res) => res.text().then((body) => ({
+        status: res.status,
+        ok: res.ok,
+        url: res.url,
+        headers: { get: (k) => res.headers.get(k) },
+        text: () => Promise.resolve(body),
+        json: () => Promise.resolve(JSON.parse(body)),
+      })),
+      () => ({ status: 0, ok: false, url, headers: { get: () => null }, text: () => Promise.resolve(""), json: () => Promise.reject(new Error("no body")) })
+    );
+  };
+  const p = queue.then(run, run);
+  queue = p.then(() => {}, () => {});
+  return p;
 }
 
 const logs = [];
@@ -41,6 +56,7 @@ const cases = id ? [[id, type || "movie", s, e]] : [["274162", "tv", 1, 1], ["87
   let failed = 0;
   for (const [tid, t, sn, ep] of cases) {
     logs.length = 0;
+    stats.requests = 0;
     const t0 = Date.now();
     let streams = [];
     try {
@@ -51,8 +67,9 @@ const cases = id ? [[id, type || "movie", s, e]] : [["274162", "tv", 1, 1], ["87
     const errors = logs.filter((l) => /not defined|is not a function|THROWN|tmdb failed|TypeError|ReferenceError/.test(l));
     const ok = streams.length > 0 && !errors.length;
     if (!ok) failed++;
-    console.log(`${ok ? "PASS" : "FAIL"} ${t} ${tid}${sn ? ` S${sn}E${ep}` : ""}: ${streams.length} streams in ${((Date.now() - t0) / 1000).toFixed(1)}s ${streams.map((x) => x.name.split("| ")[1] + " " + x.quality).join(", ")}`);
+    console.log(`${ok ? "PASS" : "FAIL"} ${t} ${tid}${sn ? ` S${sn}E${ep}` : ""}: ${streams.length} streams in ${((Date.now() - t0) / 1000).toFixed(1)}s, ${stats.requests} requests (serial) ${streams.map((x) => x.name.split("| ")[1] + " " + x.quality).join(", ")}`);
     for (const l of errors) console.log("   " + l);
+    if (process.env.VERBOSE) for (const l of logs) console.log("   · " + l.slice(0, 160));
   }
   process.exit(failed ? 1 : 0);
 })();

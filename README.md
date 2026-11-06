@@ -31,7 +31,7 @@ URL answers with HLS (`#EXTM3U`) or video bytes.
 | **3isk** | `ww4.3ick.club` (via 3esk.onl) | Turkish series, subbed + dubbed | 3/3 pass | Kuruluş Osman S1E1 / S5E3, Diriliş Ertuğrul S1E2 |
 | **Anime4up** | rotating, `4f.gnli129.shop` today (discovered from anime4up.bond) | anime | 4/5 pass | Its own 1080p HLS players. The miss: the site only has Solo Leveling Season 2. |
 | **WitAnime** | `witanime.onl` | anime | 2/5 pass | Many older episodes' host files are deleted (uqload "file expired", ok.ru blocked), and Solo Leveling S1 isn't listed. Kept because what it returns plays. |
-| **Akwam** | `akwam.ss` (+ ak.sv, akwam.to/.it/.net) | Arabic + foreign | 0/9 now, offline test passes | Reachable only intermittently from this ISP: DNS-blocked on the router resolver and TLS-reset by SNI (1.1.1.1 resolves it). During one reachable window the full flow returned playable `downet.net` files (206 over http). Fixture-based `tests/akwam.offline.js` covers the direct and the `go.*` redirect paths. If it's unreachable it fails fast and doesn't delay the other sources. |
+| **Akwam** (disabled) | `akwam.ss` (+ ak.sv, akwam.to/.it/.net) | Arabic + foreign | 0/9 now, offline test passes | **Disabled** (`enabled: false` in `src/sources/akwam.js`) because this ISP blocks it: DNS on the router resolver and TLS resets by SNI (1.1.1.1 resolves it). During one reachable window the full flow returned playable `downet.net` files (206 over http). `tests/akwam.offline.js` covers the direct and the `go.*` redirect paths. To re-enable, delete the `enabled: false` line and rebuild. `node tests/live.js akwam` still runs it. |
 
 ### Probed and left out
 
@@ -83,12 +83,28 @@ Anime handling (`src/lib/anime.js`) applies to both anime sites. It searches the
 rather than "Your Name."). It maps TMDB season N to the site's "Nth Season" entry, and falls back to absolute
 numbering for single-entry long runners such as One Piece, whose TMDB "seasons" are arcs.
 
+## Nuvio's plugin runtime (verified on a Sony BRAVIA over adb)
+
+The plugin runs in Nuvio's own JS runtime, which differs from Node in ways that broke the first versions:
+
+| Behaviour | Seen in logcat | How the code copes |
+|---|---|---|
+| No `async/await` in dynamically loaded code | Nuvio's docs | `npm run build` lowers the bundle to ES2016 with esbuild, as Nuvio's own build does, and fails if `async`/`await` survive |
+| **No timers**: no `setTimeout` / `setInterval` | `setTimeout is not defined` | Delays and retries are skipped without timers. Time limits come from a `Date.now()` deadline: no new request starts after it, and every finished request checks it. |
+| **One fetch at a time per plugin** | the next fetch starts only after the previous one finished | Sources run one after another, best first for the title (Arabic: Laroza, ArabSeed; Turkish: 3isk; anime: Anime4up; foreign: FaselHD, TopCinema). At most 5 embeds per source, hosts that resolve reliably first, and only the first working playlist per embed is probed. |
+| Network errors resolve with **status 0** instead of throwing | `akwam.ss 0` | Status 0 counts as a network failure, and that host is skipped for the rest of the request |
+| ~30 s fetch timeout | `failed to connect ... after 30000ms` | A host that hangs costs at most one timeout |
+
+`npm run test:nuvio` (`tests/nuvio-sandbox.js`) runs the **built** bundle inside a bare `vm` context that mimics
+all of this: fetch + console only, fetches serialised, status 0 on errors. Run it before pushing.
+
 ## Development
 
 ```
 npm install              # node-fetch, only for running tests on Node < 18
 npm run probe            # re-probe every candidate domain -> domains.json
 npm test                 # offline: unit checks + Akwam fixture test (direct and go.* redirect paths)
+npm run test:nuvio       # the built bundle in a Nuvio-like sandbox (no timers, serial fetch), live sites
 npm run test:live        # live, every source on its own title set (node tests/live.js akwam topcinema ...)
 npm run test:hub         # live, the full aggregator on a few titles
 npm run build            # bundle src/ -> providers/arabhub.js (the file Nuvio loads)
