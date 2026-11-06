@@ -3,9 +3,25 @@
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Nuvio's plugin runtime has NO timers (`setTimeout is not defined`, seen in the TV's logcat). With
+// timers, use them; without, delays are skipped (busy-waiting would freeze every parallel source) and
+// time limits fall back to Nuvio's own fetch timeout plus the Date.now() deadline below.
+const HAS_TIMERS = typeof setTimeout === "function";
+const sleep = (ms) => (HAS_TIMERS ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+
+// request-wide deadline: once passed, no new HTTP request starts (works without timers)
+let deadline = 0;
+const setDeadline = (ms) => { deadline = ms ? Date.now() + ms : 0; };
+const pastDeadline = () => deadline > 0 && Date.now() > deadline;
+
+// Every finished request (ok or failed) "ticks". Without timers this is the only moment code gets to
+// run, so the hub listens to ticks to stop waiting for hung requests once the deadline has passed.
+const tickers = [];
+const onTick = (fn) => { tickers.push(fn); return () => { const i = tickers.indexOf(fn); if (i >= 0) tickers.splice(i, 1); }; };
+const tick = () => { for (const fn of tickers.slice()) { try { fn(); } catch (e) {} } };
 
 function withTimeout(promise, ms, label) {
+  if (!HAS_TIMERS) return promise;
   let t;
   const timer = new Promise((_, rej) => {
     t = setTimeout(() => rej(new Error(`timeout ${ms}ms${label ? " " + label : ""}`)), ms);
@@ -98,6 +114,7 @@ async function request(url, opts) {
   const tries = (o.retries == null ? 1 : o.retries) + 1;
   let lastErr = null;
   for (let i = 0; i < tries; i++) {
+    if (pastDeadline()) throw lastErr || new Error("time budget used up");
     try {
       const res = await withTimeout(fetch(safeUrl(url), { method: o.method || (body ? "POST" : "GET"), headers, body }), o.timeout || 12000, hostOf(url));
       if (o.jar) o.jar.take(res);
@@ -108,9 +125,11 @@ async function request(url, opts) {
         continue;
       }
       const text = await withTimeout(res.text(), o.timeout || 12000, hostOf(url));
+      tick();
       return { ok: res.status >= 200 && res.status < 400, status: res.status, url: res.url || url, text: String(text || ""), headers: res.headers };
     } catch (e) {
       lastErr = e;
+      tick();
       if (i + 1 < tries) await sleep(300 + 400 * i);
     }
   }
@@ -175,4 +194,4 @@ function mirrorSite(cfg) {
   };
 }
 
-module.exports = { UA, sleep, withTimeout, request, getJson, mirrorSite, makeJar, absUrl, pathOf, originOf, hostOf, safeUrl, formBody };
+module.exports = { UA, HAS_TIMERS, sleep, withTimeout, setDeadline, pastDeadline, onTick, request, getJson, mirrorSite, makeJar, absUrl, pathOf, originOf, hostOf, safeUrl, formBody };

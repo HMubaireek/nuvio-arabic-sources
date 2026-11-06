@@ -1,12 +1,13 @@
 {
   "name": "nuvio-arabic-sources",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "Arab Hub - Nuvio local scraper aggregating Arabic movie/TV sources",
   "scripts": {
     "build": "node scripts/build.js",
     "probe": "node scripts/probe-domains.js",
     "test": "node tests/akwam.offline.js && node tests/unit.js",
+    "test:nuvio": "node tests/nuvio-sandbox.js",
     "test:live": "node tests/live.js",
     "test:hub": "node tests/live.js --hub"
   },

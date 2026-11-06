@@ -23,12 +23,13 @@ var __mods = [
   function(module2, exports2, __req2) {
     const { tmdbInfo, absoluteEpisode } = __req2(1);
     const { resolve, qualityFrom, snapHeight } = __req2(3);
-    const { withTimeout } = __req2(2);
+    const { withTimeout, setDeadline, pastDeadline, onTick, HAS_TIMERS } = __req2(2);
     const SOURCES = __req2(6);
     const SOURCE_BUDGET = 28e3;
     const EMBED_BUDGET = 14e3;
     const TOTAL_BUDGET = 4e4;
     const MAX_EMBEDS_PER_SOURCE = 8;
+    const NO_TIMER_DEADLINE = 22e3;
     const pad2 = (n) => String(n).padStart(2, "0");
     const logger = (tag) => (...a) => console.log(`[ArabHub:${tag}]`, ...a);
     function pool(items, limit, fn) {
@@ -103,6 +104,9 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
         const season = type === "tv" ? +seasonNum || 1 : null;
         const episode = type === "tv" ? +episodeNum || 1 : null;
         const log = logger("hub");
+        setDeadline(HAS_TIMERS ? o.budget || TOTAL_BUDGET : NO_TIMER_DEADLINE);
+        if (!HAS_TIMERS)
+          log("runtime has no timers: deadline-only mode");
         let info;
         try {
           info = yield tmdbInfo(tmdbId, type);
@@ -118,10 +122,22 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
         const collected = [];
         const sink = (src, r) => collected.push(toStream(src, r, streamTitle));
         const all = Promise.all(active.map((s) => runSource(s, base, sink)));
+        let stopTicks = () => {
+        };
+        const cutoff = new Promise((res) => {
+          stopTicks = onTick(() => {
+            if (pastDeadline())
+              res("deadline");
+          });
+        });
         try {
-          yield withTimeout(all, o.budget || TOTAL_BUDGET, "total");
+          const how = yield withTimeout(Promise.race([all.then(() => "done"), cutoff]), o.budget || TOTAL_BUDGET, "total");
+          if (how === "deadline")
+            log(`deadline reached, returning ${collected.length} streams so far`);
         } catch (e) {
           log(`budget reached, returning ${collected.length} streams so far`);
+        } finally {
+          stopTicks();
         }
         const seen = {};
         const order = {};
@@ -201,8 +217,33 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
   /* 2: src/lib/http.js */
   function(module2, exports2, __req2) {
     const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const HAS_TIMERS = typeof setTimeout === "function";
+    const sleep = (ms) => HAS_TIMERS ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve();
+    let deadline = 0;
+    const setDeadline = (ms) => {
+      deadline = ms ? Date.now() + ms : 0;
+    };
+    const pastDeadline = () => deadline > 0 && Date.now() > deadline;
+    const tickers = [];
+    const onTick = (fn) => {
+      tickers.push(fn);
+      return () => {
+        const i = tickers.indexOf(fn);
+        if (i >= 0)
+          tickers.splice(i, 1);
+      };
+    };
+    const tick = () => {
+      for (const fn of tickers.slice()) {
+        try {
+          fn();
+        } catch (e) {
+        }
+      }
+    };
     function withTimeout(promise, ms, label) {
+      if (!HAS_TIMERS)
+        return promise;
       let t;
       const timer = new Promise((_, rej) => {
         t = setTimeout(() => rej(new Error(`timeout ${ms}ms${label ? " " + label : ""}`)), ms);
@@ -311,6 +352,8 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
         const tries = (o.retries == null ? 1 : o.retries) + 1;
         let lastErr = null;
         for (let i = 0; i < tries; i++) {
+          if (pastDeadline())
+            throw lastErr || new Error("time budget used up");
           try {
             const res = yield withTimeout(fetch(safeUrl(url), { method: o.method || (body ? "POST" : "GET"), headers, body }), o.timeout || 12e3, hostOf(url));
             if (o.jar)
@@ -321,9 +364,11 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
               continue;
             }
             const text = yield withTimeout(res.text(), o.timeout || 12e3, hostOf(url));
+            tick();
             return { ok: res.status >= 200 && res.status < 400, status: res.status, url: res.url || url, text: String(text || ""), headers: res.headers };
           } catch (e) {
             lastErr = e;
+            tick();
             if (i + 1 < tries)
               yield sleep(300 + 400 * i);
           }
@@ -390,7 +435,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
         url: (path) => (active || bases[0]) + path
       };
     }
-    module2.exports = { UA, sleep, withTimeout, request, getJson, mirrorSite, makeJar, absUrl, pathOf, originOf, hostOf, safeUrl, formBody };
+    module2.exports = { UA, HAS_TIMERS, sleep, withTimeout, setDeadline, pastDeadline, onTick, request, getJson, mirrorSite, makeJar, absUrl, pathOf, originOf, hostOf, safeUrl, formBody };
   },
   /* 3: src/lib/hosts.js */
   function(module2, exports2, __req2) {

@@ -2,7 +2,7 @@
 //   getStreams(tmdbId, mediaType, season, episode) -> [{name, title, url, quality, headers, provider}]
 const { tmdbInfo, absoluteEpisode } = require("./lib/tmdb");
 const { resolve, qualityFrom, snapHeight } = require("./lib/hosts");
-const { withTimeout } = require("./lib/http");
+const { withTimeout, setDeadline, pastDeadline, onTick, HAS_TIMERS } = require("./lib/http");
 
 const SOURCES = require("./sources/registry");
 
@@ -10,6 +10,9 @@ const SOURCE_BUDGET = 28000;   // search + page walking for one source
 const EMBED_BUDGET = 14000;    // one embed host
 const TOTAL_BUDGET = 40000;    // whole request; whatever resolved by then is returned
 const MAX_EMBEDS_PER_SOURCE = 8;
+// without timers (Nuvio) nothing can cut a slow request short, so stop *starting* requests earlier;
+// in-flight ones end at Nuvio's own fetch timeout
+const NO_TIMER_DEADLINE = 22000;
 
 const pad2 = (n) => String(n).padStart(2, "0");
 const logger = (tag) => (...a) => console.log(`[ArabHub:${tag}]`, ...a);
@@ -76,6 +79,8 @@ async function getStreams(tmdbId, mediaType, seasonNum, episodeNum, opts) {
   const season = type === "tv" ? +seasonNum || 1 : null;
   const episode = type === "tv" ? +episodeNum || 1 : null;
   const log = logger("hub");
+  setDeadline(HAS_TIMERS ? (o.budget || TOTAL_BUDGET) : NO_TIMER_DEADLINE);
+  if (!HAS_TIMERS) log("runtime has no timers: deadline-only mode");
 
   let info;
   try {
@@ -96,10 +101,19 @@ async function getStreams(tmdbId, mediaType, seasonNum, episodeNum, opts) {
   const collected = [];
   const sink = (src, r) => collected.push(toStream(src, r, streamTitle));
   const all = Promise.all(active.map((s) => runSource(s, base, sink)));
+  // finish when every source is done, or - checked on each finished request, which also works without
+  // timers - once the deadline has passed (hung requests keep running in the background, ignored)
+  let stopTicks = () => {};
+  const cutoff = new Promise((res) => {
+    stopTicks = onTick(() => { if (pastDeadline()) res("deadline"); });
+  });
   try {
-    await withTimeout(all, o.budget || TOTAL_BUDGET, "total");
+    const how = await withTimeout(Promise.race([all.then(() => "done"), cutoff]), o.budget || TOTAL_BUDGET, "total");
+    if (how === "deadline") log(`deadline reached, returning ${collected.length} streams so far`);
   } catch (e) {
     log(`budget reached, returning ${collected.length} streams so far`);
+  } finally {
+    stopTicks();
   }
 
   const seen = {};
