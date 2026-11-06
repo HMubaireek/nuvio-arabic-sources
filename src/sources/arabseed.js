@@ -26,7 +26,7 @@ module.exports = {
   id: "arabseed",
   name: "ArabSeed",
   types: ["movie", "tv"],
-  bases: ["https://m.asd.watch", "https://arabseed.top", "https://m.arabseed.top", "https://m.myseed.tv", "https://asd.homes", "https://arabseed.show"],
+  bases: ["https://m.asd.watch", "https://arabseed.giving", "https://arabseed.top", "https://m.arabseed.top", "https://m.myseed.tv", "https://asd.homes", "https://arabseed.show"],
 
   async links(ctx) {
     const site = mirrorSite({ name: "ArabSeed", bases: this.bases, marker: /ArabSeed|عرب سيد/i, sameSite: /asd|seed/i, log: ctx.log });
