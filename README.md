@@ -9,7 +9,7 @@ format (`[{ name, title, url, quality, headers }]`).
 Settings → Plugins / Local scrapers → add repository → paste
 
 ```
-https://raw.githubusercontent.com/HMubaireek/nuvio-arabic-sources/main/manifest.json
+https://raw.githubusercontent.com/HMubaireek/nuvio-arabic-sources/refs/heads/main/manifest.json
 ```
 
 then enable **Arab Hub**.
