@@ -12,7 +12,30 @@ Settings → Plugins / Local scrapers → add repository → paste
 https://raw.githubusercontent.com/HMubaireek/nuvio-arabic-sources/refs/heads/main/manifest.json
 ```
 
-then enable **Arab Hub**.
+then enable **Arab Hub** and/or **TorBox**. Each one shows up as its own provider in Nuvio's stream list.
+
+## TorBox
+
+`providers/torbox.js` (source in `src/torbox/`) plays files that are **already in your TorBox library**:
+torrents, usenet and web downloads. Add a release on torbox.app first, either from the dashboard search
+or with a magnet. Then open the title in Nuvio.
+
+- **Setup:** Nuvio → Settings → Plugins → TorBox → ⚙ → paste your API key (torbox.app → Settings → Account).
+  The key stays in Nuvio's plugin settings and is never part of this repo.
+- **Arabic + English matching:** the TMDB English, Arabic, original and alternative titles are compared with
+  the release name, and so are consonant skeletons (`src/lib/translit.js`). That's how `Al.Sada.Al.Afadel.2025…` matches
+  السادة الأفاضل and `El.Nos.S01E04…` matches النص. A transliteration-only match also needs the year. A movie
+  never matches a series pack, so the 2025 Egyptian film *The Gentlemen* doesn't pick up Netflix's *The Gentlemen S01*.
+- **Links that don't expire:** by default the stream URL is TorBox's `requestdl?…&redirect=true` endpoint,
+  which redirects to a freshly issued CDN link when playback starts. The URL carries the API key. If you don't
+  want that, set the plugin's *Link* setting to *Fetched while searching*: links are then requested during the
+  search and stay valid for a few hours.
+- TorBox's public search API (`search-api.torbox.app`) and its own Stremio addon are gone (no DNS, Nov 2026).
+  That's why the plugin lists your library instead of searching TorBox's cache.
+
+`node tests/torbox.js` runs offline matching checks against real release names.
+`TORBOX_API_KEY=… npm run test:torbox` runs the built bundle in the Nuvio-like sandbox against your account
+and range-probes the returned links.
 
 ## Sources
 

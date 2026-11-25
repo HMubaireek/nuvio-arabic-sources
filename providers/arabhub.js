@@ -2303,8 +2303,9 @@ function __req(i) {
   __mods[i](m, m.exports, __req);
   return m.exports;
 }
-var __hub = __req(0);
+var __main = __req(0);
 function getStreams(tmdbId, mediaType, season, episode) {
-  return __hub.getStreams(tmdbId, mediaType, season, episode);
+  return __main.getStreams(tmdbId, mediaType, season, episode);
 }
-module.exports = { getStreams };
+var onSettings = __main.onSettings;
+module.exports = onSettings ? { getStreams, onSettings } : { getStreams };
