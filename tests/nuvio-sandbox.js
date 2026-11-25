@@ -5,7 +5,7 @@
 const vm = require("vm");
 const fs = require("fs");
 const path = require("path");
-const nodeFetch = require("node-fetch");
+const nodeFetch = require("./fetch-sni");
 
 const code = fs.readFileSync(path.join(__dirname, "..", "providers", "arabhub.js"), "utf8");
 

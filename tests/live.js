@@ -3,7 +3,7 @@
 //   node tests/live.js topcinema akwam -> only those sources
 //   node tests/live.js --hub           -> full aggregator on a few titles
 // A case passes when at least one returned URL actually answers (m3u8 -> #EXTM3U, mp4 -> video bytes).
-if (typeof fetch === "undefined") global.fetch = require("node-fetch");
+if (typeof fetch === "undefined") global.fetch = require("./fetch-sni");
 const { getStreams, SOURCES } = require("../src/index");
 const CASES = require("./cases");
 

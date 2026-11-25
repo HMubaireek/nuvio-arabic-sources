@@ -42,6 +42,11 @@ const ORIGIN_RE = /^(https?:)\/\/([^\/?#]+)/i;
 const originOf = (u) => { const m = ORIGIN_RE.exec(String(u || "")); return m ? `${m[1]}//${m[2]}` : ""; };
 const hostOf = (u) => { const m = ORIGIN_RE.exec(String(u || "")); return m ? m[2].toLowerCase() : ""; };
 
+// Hostnames the ISP filters by TLS SNI while a sibling on the same Cloudflare zone is left open: the TLS
+// handshake goes to the front (SNI = front), the Host header names the real site. Callers keep using the
+// real hostname; request() rewrites only the wire URL. (2026-11-25: m.myseed.tv resets, myseed.tv doesn't.)
+const FRONTS = { "m.myseed.tv": "myseed.tv" };
+
 function absUrl(src, base) {
   const s = String(src || "").trim().replace(/\\\//g, "/");
   if (!s) return "";
@@ -117,12 +122,17 @@ async function request(url, opts) {
   // it only costs another full round trip. Retries are for Node (tests / timer-capable runtimes).
   const tries = (HAS_TIMERS ? (o.retries == null ? 1 : o.retries) : 0) + 1;
   const host = hostOf(url);
+  let wire = url;
+  if (FRONTS[host]) {
+    headers.Host = host;
+    wire = String(url).replace(ORIGIN_RE, (m, proto) => `${proto}//${FRONTS[host]}`);
+  }
   if (deadHosts[host]) throw new Error(`${host} unreachable (earlier failure)`);
   let lastErr = null;
   for (let i = 0; i < tries; i++) {
     if (pastDeadline()) throw lastErr || new Error("time budget used up");
     try {
-      const res = await withTimeout(fetch(safeUrl(url), { method: o.method || (body ? "POST" : "GET"), headers, body }), o.timeout || 12000, host);
+      const res = await withTimeout(fetch(safeUrl(wire), { method: o.method || (body ? "POST" : "GET"), headers, body }), o.timeout || 12000, host);
       // Nuvio's fetch resolves with status 0 (instead of throwing) when DNS fails or the TLS is reset
       if (!res || !res.status) throw new Error(`network error (status 0) ${host}`);
       if (o.jar) o.jar.take(res);
@@ -134,7 +144,9 @@ async function request(url, opts) {
       }
       const text = await withTimeout(res.text(), o.timeout || 12000, hostOf(url));
       tick();
-      return { ok: res.status >= 200 && res.status < 400, status: res.status, url: res.url || url, text: String(text || ""), headers: res.headers };
+      // report the real hostname back (the front is a transport detail)
+      const finalUrl = !res.url ? url : wire !== url && hostOf(res.url) === FRONTS[host] ? String(res.url).replace(ORIGIN_RE, (m, proto) => `${proto}//${host}`) : res.url;
+      return { ok: res.status >= 200 && res.status < 400, status: res.status, url: finalUrl, text: String(text || ""), headers: res.headers };
     } catch (e) {
       lastErr = e;
       tick();

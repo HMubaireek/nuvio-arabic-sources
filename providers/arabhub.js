@@ -322,6 +322,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       const m = ORIGIN_RE.exec(String(u || ""));
       return m ? m[2].toLowerCase() : "";
     };
+    const FRONTS = { "m.myseed.tv": "myseed.tv" };
     function absUrl(src, base) {
       const s = String(src || "").trim().replace(/\\\//g, "/");
       if (!s)
@@ -397,6 +398,11 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
         }
         const tries = (HAS_TIMERS ? o.retries == null ? 1 : o.retries : 0) + 1;
         const host = hostOf(url);
+        let wire = url;
+        if (FRONTS[host]) {
+          headers.Host = host;
+          wire = String(url).replace(ORIGIN_RE, (m, proto) => `${proto}//${FRONTS[host]}`);
+        }
         if (deadHosts[host])
           throw new Error(`${host} unreachable (earlier failure)`);
         let lastErr = null;
@@ -404,7 +410,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
           if (pastDeadline())
             throw lastErr || new Error("time budget used up");
           try {
-            const res = yield withTimeout(fetch(safeUrl(url), { method: o.method || (body ? "POST" : "GET"), headers, body }), o.timeout || 12e3, host);
+            const res = yield withTimeout(fetch(safeUrl(wire), { method: o.method || (body ? "POST" : "GET"), headers, body }), o.timeout || 12e3, host);
             if (!res || !res.status)
               throw new Error(`network error (status 0) ${host}`);
             if (o.jar)
@@ -416,7 +422,8 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
             }
             const text = yield withTimeout(res.text(), o.timeout || 12e3, hostOf(url));
             tick();
-            return { ok: res.status >= 200 && res.status < 400, status: res.status, url: res.url || url, text: String(text || ""), headers: res.headers };
+            const finalUrl = !res.url ? url : wire !== url && hostOf(res.url) === FRONTS[host] ? String(res.url).replace(ORIGIN_RE, (m, proto) => `${proto}//${host}`) : res.url;
+            return { ok: res.status >= 200 && res.status < 400, status: res.status, url: finalUrl, text: String(text || ""), headers: res.headers };
           } catch (e) {
             lastErr = e;
             tick();
@@ -1847,7 +1854,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       id: "arabseed",
       name: "ArabSeed",
       types: ["movie", "tv"],
-      bases: ["https://m.asd.watch", "https://arabseed.fyi", "https://m.arabseed.top", "https://m.myseed.tv", "https://asd.homes"],
+      bases: ["https://m.myseed.tv", "https://m.arabseed.top", "https://m.asd.watch", "https://arabseed.fyi"],
       links(ctx) {
         return __async(this, null, function* () {
           const site = mirrorSite({ name: "ArabSeed", bases: this.bases, marker: /ArabSeed|عرب سيد/i, sameSite: /asd|seed/i, log: ctx.log });

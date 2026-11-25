@@ -1,4 +1,4 @@
-// ArabSeed (arabseed.* -> m.asd.watch). Custom "ArabSeed 2026" theme.
+// ArabSeed (arabseed.one guide -> m.myseed.tv; reached through the myseed.tv front, see FRONTS in lib/http). Custom "ArabSeed 2026" theme.
 //   search : /find/?word=Q[&type=movies]  -> a.movie__block[title]
 //   series : every episode page links /selary/<show>-الموسم-<ordinal>/ (season page with all episodes);
 //            other seasons are reached by swapping the ordinal in that slug
@@ -26,7 +26,7 @@ module.exports = {
   id: "arabseed",
   name: "ArabSeed",
   types: ["movie", "tv"],
-  bases: ["https://m.asd.watch", "https://arabseed.fyi", "https://m.arabseed.top", "https://m.myseed.tv", "https://asd.homes"],
+  bases: ["https://m.myseed.tv", "https://m.arabseed.top", "https://m.asd.watch", "https://arabseed.fyi"],
 
   async links(ctx) {
     const site = mirrorSite({ name: "ArabSeed", bases: this.bases, marker: /ArabSeed|عرب سيد/i, sameSite: /asd|seed/i, log: ctx.log });
