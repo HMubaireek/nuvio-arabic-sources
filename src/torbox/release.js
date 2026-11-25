@@ -93,6 +93,17 @@ function titleMatch(release, keys) {
   return sk && keys.skel[sk] ? 1 : 0;
 }
 
+// "النص التاني" / "El Nos El Tani" / "Title 2" / "Title II" -> "النص" / "El Nos" / "Title" (null when not a sequel title).
+// Metadata sources disagree on sequels: AIOMetadata (TVDB) lists "El Nos" with both seasons under the IMDb id
+// that TMDB maps to the separate show "El Nos El Tani", so plugins get the sequel's TMDB id with the parent's numbering.
+function sequelBase(title) {
+  const t = String(title || "").trim();
+  const ar = /^(.{2,}?)\s+(?:ال)?(?:تاني|تانى|ثاني|ثانى|٢)$/.exec(normAr(t));
+  if (ar) return ar[1].trim();
+  const la = /^(.{2,}?)\s+(?:(?:el|al)[\s-]+(?:tani|tany|thani|thany)|2|ii|part\s*(?:2|two|ii))$/i.exec(t);
+  return la ? la[1].trim() : null;
+}
+
 function qualityOf(name) {
   const s = String(name || "");
   if (/\b(?:2160p|4k|uhd)\b/i.test(s)) return 2160;
@@ -121,4 +132,4 @@ function tagsOf(name) {
   return tags;
 }
 
-module.exports = { VIDEO_EXT, parseRelease, episodeInfo, looksLikeSeries, wantedKeys, titleMatch, qualityOf, tagsOf, baseName };
+module.exports = { VIDEO_EXT, parseRelease, episodeInfo, looksLikeSeries, wantedKeys, titleMatch, sequelBase, qualityOf, tagsOf, baseName };

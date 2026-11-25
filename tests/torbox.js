@@ -81,6 +81,18 @@ t("Latin title inside a non-Latin pack name, and junk files", () => {
   assert.deepStrictEqual(ids(matches(LIB, dexter, "tv", 2, 1)), ["8:0"]); // .nfo skipped
 });
 
+t("sequel titles fall back to the parent (El Nos El Tani listed under El Nos numbering)", () => {
+  assert.strictEqual(R.sequelBase("النص التاني"), "النص");
+  assert.strictEqual(R.sequelBase("El Nos El Tani"), "El Nos");
+  assert.strictEqual(R.sequelBase("The Blue Elephant 2"), "The Blue Elephant");
+  assert.strictEqual(R.sequelBase("El Nos"), null);
+  assert.strictEqual(R.sequelBase("Blade Runner 2049"), null);
+  const sequel = { type: "tv", year: 2026, title: "El Nos El Tani", titles: ["El Nos El Tani", "النص التاني"], seasons: [{ number: 1, count: 15 }] };
+  assert.deepStrictEqual(ids(matches(LIB, sequel, "tv", 1, 1)), []); // strict match stays strict
+  const parent = Object.assign({}, sequel, { titles: sequel.titles.map(R.sequelBase) });
+  assert.deepStrictEqual(ids(matches(LIB, parent, "tv", 1, 1)), ["5:0", "6:0"]);
+});
+
 console.log(`${n} offline checks passed`);
 
 if (process.argv.indexOf("--live") >= 0) live();

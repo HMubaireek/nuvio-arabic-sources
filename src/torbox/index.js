@@ -161,7 +161,17 @@ async function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
     return [];
   }
 
-  const found = matches(lib, info, type, season, episode)
+  let raw = matches(lib, info, type, season, episode);
+  if (!raw.length) {
+    // sequel listed under its parent's numbering (see sequelBase): retry with the parent title
+    const bases = [];
+    for (const t of info.titles || []) { const b = R.sequelBase(t); if (b && bases.indexOf(b) < 0) bases.push(b); }
+    if (bases.length) {
+      raw = matches(lib, Object.assign({}, info, { titles: bases }), type, season, episode).map((m) => Object.assign(m, { via: bases[0] }));
+      if (raw.length) log(`no match for "${info.title}", using parent title ${bases.join(" / ")}`);
+    }
+  }
+  const found = raw
     .map((m) => Object.assign(m, { q: R.qualityOf(m.path) || R.qualityOf(m.it.name), size: m.f.size || 0 }))
     .sort((a, b) => b.score - a.score || b.q - a.q || b.size - a.size);
   const label = type === "movie" ? `${info.title}${info.year ? ` (${info.year})` : ""}` : `${info.title} S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`;
@@ -195,7 +205,7 @@ async function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
       url,
       quality,
       // Nuvio's TV app shows `size` as the stream's description line (verbatim), so make it readable
-      size: [fmtSize(m.size), m.k.label].concat(tags).filter(Boolean).join(" · ") + `\n${R.baseName(m.path)}`,
+      size: [fmtSize(m.size), m.k.label].concat(tags).filter(Boolean).join(" · ") + (m.via ? ` · matched as ${m.via}` : "") + `\n${R.baseName(m.path)}`,
       headers: {},
       provider: "torbox",
     });

@@ -181,7 +181,21 @@ var __mods = [
           log(e.message);
           return [];
         }
-        const found = matches(lib, info, type, season, episode).map((m) => Object.assign(m, { q: R.qualityOf(m.path) || R.qualityOf(m.it.name), size: m.f.size || 0 })).sort((a, b) => b.score - a.score || b.q - a.q || b.size - a.size);
+        let raw = matches(lib, info, type, season, episode);
+        if (!raw.length) {
+          const bases = [];
+          for (const t of info.titles || []) {
+            const b = R.sequelBase(t);
+            if (b && bases.indexOf(b) < 0)
+              bases.push(b);
+          }
+          if (bases.length) {
+            raw = matches(lib, Object.assign({}, info, { titles: bases }), type, season, episode).map((m) => Object.assign(m, { via: bases[0] }));
+            if (raw.length)
+              log(`no match for "${info.title}", using parent title ${bases.join(" / ")}`);
+          }
+        }
+        const found = raw.map((m) => Object.assign(m, { q: R.qualityOf(m.path) || R.qualityOf(m.it.name), size: m.f.size || 0 })).sort((a, b) => b.score - a.score || b.q - a.q || b.size - a.size);
         const label = type === "movie" ? `${info.title}${info.year ? ` (${info.year})` : ""}` : `${info.title} S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`;
         log(`${label}: ${lib.length} library items, ${found.length} matching files`);
         const seen = {};
@@ -216,7 +230,7 @@ ${details}`,
             url,
             quality,
             // Nuvio's TV app shows `size` as the stream's description line (verbatim), so make it readable
-            size: [fmtSize(m.size), m.k.label].concat(tags).filter(Boolean).join(" \xB7 ") + `
+            size: [fmtSize(m.size), m.k.label].concat(tags).filter(Boolean).join(" \xB7 ") + (m.via ? ` \xB7 matched as ${m.via}` : "") + `
 ${R.baseName(m.path)}`,
             headers: {},
             provider: "torbox"
@@ -604,6 +618,14 @@ ${R.baseName(m.path)}`,
       const sk = /[؀-ۿ]/.test(release.title) ? arabicSkeleton(release.title) : latinSkeleton(release.title);
       return sk && keys.skel[sk] ? 1 : 0;
     }
+    function sequelBase(title) {
+      const t = String(title || "").trim();
+      const ar = /^(.{2,}?)\s+(?:ال)?(?:تاني|تانى|ثاني|ثانى|٢)$/.exec(normAr(t));
+      if (ar)
+        return ar[1].trim();
+      const la = /^(.{2,}?)\s+(?:(?:el|al)[\s-]+(?:tani|tany|thani|thany)|2|ii|part\s*(?:2|two|ii))$/i.exec(t);
+      return la ? la[1].trim() : null;
+    }
     function qualityOf(name) {
       const s = String(name || "");
       if (/\b(?:2160p|4k|uhd)\b/i.test(s))
@@ -647,7 +669,7 @@ ${R.baseName(m.path)}`,
         tags.push("Atmos");
       return tags;
     }
-    module2.exports = { VIDEO_EXT, parseRelease, episodeInfo, looksLikeSeries, wantedKeys, titleMatch, qualityOf, tagsOf, baseName };
+    module2.exports = { VIDEO_EXT, parseRelease, episodeInfo, looksLikeSeries, wantedKeys, titleMatch, sequelBase, qualityOf, tagsOf, baseName };
   },
   /* 4: src/lib/match.js */
   function(module2, exports2, __req2) {
