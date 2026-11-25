@@ -30,7 +30,7 @@ module.exports = {
   id: "faselhd",
   name: "FaselHD",
   types: ["movie", "tv"],
-  bases: ["https://web11612x.faselhdx.one"],
+  bases: ["https://web112518x.faselhdx.one", "https://web11612x.faselhdx.one"],
 
   async links(ctx) {
     const site = mirrorSite({ name: "FaselHD", bases: this.bases, marker: MARKER, sameSite: /fasel/i, log: ctx.log });

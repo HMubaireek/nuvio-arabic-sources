@@ -1,4 +1,4 @@
-// Laroza (laroza1.lat; older laroza.* domains are dead or blocked). Arabic + Turkish series, Arabic/foreign movies.
+// Laroza (laroza-tv.lat, home page /gaza.20; laroza1.lat and older laroza.* domains are dead). Arabic + Turkish series, Arabic/foreign movies.
 //   search  : /search.php?keywords=Q -> a[href*=video.php?vid=][title] (episodes are listed individually)
 //   series  : any episode's video.php page has div.SeasonsBox: li[data-serie=N] "الموسم N" and
 //             div.SeasonsEpisodes[data-serie=N] > a[title] (<em>N</em>)
@@ -14,7 +14,7 @@ module.exports = {
   id: "laroza",
   name: "Laroza",
   types: ["movie", "tv"],
-  bases: ["https://laroza1.lat"],
+  bases: ["https://laroza-tv.lat"],
 
   async links(ctx) {
     const site = mirrorSite({ name: "Laroza", bases: this.bases, marker: /لاروزا|laroza/i, sameSite: /laroza/i, log: ctx.log });

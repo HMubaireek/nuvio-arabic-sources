@@ -14,7 +14,7 @@ module.exports = {
   id: "topcinema",
   name: "TopCinema",
   types: ["movie", "tv"],
-  bases: ["https://web6.topcinema.fan", "https://topcinema.fan", "https://topcinema.cam", "https://topcinemaa.co", "https://topcinema.ink", "https://topcinema.film", "https://web.topcinemaa.live"],
+  bases: ["https://web6.topcinema.fan", "https://topcinema.cam", "https://topcinema.ink", "https://topcinema.film"],
 
   async links(ctx) {
     const site = mirrorSite({ name: "TopCinema", bases: this.bases, marker: /movies2023|topcinema/i, sameSite: /topcinema/i, log: ctx.log });

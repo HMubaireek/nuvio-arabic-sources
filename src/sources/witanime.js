@@ -12,7 +12,7 @@ module.exports = {
   id: "witanime",
   name: "WitAnime",
   types: ["movie", "tv"],
-  bases: ["https://witanime.onl", "https://witanime.site", "https://witanime.com"],
+  bases: ["https://witanime.onl"],
   applies: (info) => info.isAnime,
 
   async links(ctx) {

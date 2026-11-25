@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node scripts/build.js",
     "probe": "node scripts/probe-domains.js",
+    "ping": "node scripts/ping-sources.js",
     "test": "node tests/akwam.offline.js && node tests/unit.js && node tests/torbox.js",
     "test:nuvio": "node tests/nuvio-sandbox.js",
     "test:live": "node tests/live.js",

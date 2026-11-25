@@ -44,7 +44,7 @@ module.exports = {
   // Re-enable by deleting this line; `node tests/live.js akwam` still runs it on demand.
   enabled: false,
   types: ["movie", "tv"],
-  bases: ["https://akwam.ss", "https://ak.sv", "https://akwam.to", "https://akwam.it", "https://akwam.net", "https://akw.to"],
+  bases: [], // every known domain is dead (2026-11-25): find new ones, then re-enable
 
   async links(ctx) {
     const site = mirrorSite({ name: "Akwam", bases: this.bases, marker: MARKER, sameSite: /akwam|ak\.sv|akw\./i, log: ctx.log });

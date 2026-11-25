@@ -13,7 +13,7 @@ module.exports = {
   id: "3isk",
   name: "3isk",
   types: ["tv"],
-  bases: ["https://ww4.3ick.club", "https://3esk.onl", "https://ww5.3ick.club", "https://3iskk.xyz", "https://esheaq.onl"],
+  bases: ["https://ww4.3ick.club", "https://3esk.onl", "https://3iskk.xyz"],
   applies: (info) => info.isTurkish || info.lang === "ar" || info.lang === "tr",
 
   async links(ctx) {

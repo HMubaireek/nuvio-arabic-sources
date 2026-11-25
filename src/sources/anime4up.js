@@ -30,7 +30,7 @@ module.exports = {
   id: "anime4up",
   name: "Anime4up",
   types: ["movie", "tv"],
-  bases: ["https://4f.gnli129.shop", "https://w1.anime4up.rest", "https://anime4up.cam"],
+  bases: ["https://4t.mcx8gh7.shop", "https://4f.gnli129.shop", "https://w1.anime4up.rest"],
   applies: (info) => info.isAnime,
 
   async links(ctx) {

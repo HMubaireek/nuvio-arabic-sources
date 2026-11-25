@@ -944,7 +944,8 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       // Re-enable by deleting this line; `node tests/live.js akwam` still runs it on demand.
       enabled: false,
       types: ["movie", "tv"],
-      bases: ["https://akwam.ss", "https://ak.sv", "https://akwam.to", "https://akwam.it", "https://akwam.net", "https://akw.to"],
+      bases: [],
+      // every known domain is dead (2026-11-25): find new ones, then re-enable
       links(ctx) {
         return __async(this, null, function* () {
           const site = mirrorSite({ name: "Akwam", bases: this.bases, marker: MARKER, sameSite: /akwam|ak\.sv|akw\./i, log: ctx.log });
@@ -1302,7 +1303,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       id: "faselhd",
       name: "FaselHD",
       types: ["movie", "tv"],
-      bases: ["https://web11612x.faselhdx.one"],
+      bases: ["https://web112518x.faselhdx.one", "https://web11612x.faselhdx.one"],
       links(ctx) {
         return __async(this, null, function* () {
           const site = mirrorSite({ name: "FaselHD", bases: this.bases, marker: MARKER, sameSite: /fasel/i, log: ctx.log });
@@ -1722,7 +1723,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       id: "topcinema",
       name: "TopCinema",
       types: ["movie", "tv"],
-      bases: ["https://web6.topcinema.fan", "https://topcinema.fan", "https://topcinema.cam", "https://topcinemaa.co", "https://topcinema.ink", "https://topcinema.film", "https://web.topcinemaa.live"],
+      bases: ["https://web6.topcinema.fan", "https://topcinema.cam", "https://topcinema.ink", "https://topcinema.film"],
       links(ctx) {
         return __async(this, null, function* () {
           const site = mirrorSite({ name: "TopCinema", bases: this.bases, marker: /movies2023|topcinema/i, sameSite: /topcinema/i, log: ctx.log });
@@ -1828,7 +1829,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       id: "arabseed",
       name: "ArabSeed",
       types: ["movie", "tv"],
-      bases: ["https://m.asd.watch", "https://arabseed.giving", "https://arabseed.top", "https://m.arabseed.top", "https://m.myseed.tv", "https://asd.homes", "https://arabseed.show"],
+      bases: ["https://m.asd.watch", "https://arabseed.fyi", "https://m.arabseed.top", "https://m.myseed.tv", "https://asd.homes"],
       links(ctx) {
         return __async(this, null, function* () {
           const site = mirrorSite({ name: "ArabSeed", bases: this.bases, marker: /ArabSeed|عرب سيد/i, sameSite: /asd|seed/i, log: ctx.log });
@@ -1991,7 +1992,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       id: "3isk",
       name: "3isk",
       types: ["tv"],
-      bases: ["https://ww4.3ick.club", "https://3esk.onl", "https://ww5.3ick.club", "https://3iskk.xyz", "https://esheaq.onl"],
+      bases: ["https://ww4.3ick.club", "https://3esk.onl", "https://3iskk.xyz"],
       applies: (info) => info.isTurkish || info.lang === "ar" || info.lang === "tr",
       links(ctx) {
         return __async(this, null, function* () {
@@ -2073,7 +2074,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       id: "laroza",
       name: "Laroza",
       types: ["movie", "tv"],
-      bases: ["https://laroza1.lat"],
+      bases: ["https://laroza-tv.lat"],
       links(ctx) {
         return __async(this, null, function* () {
           const site = mirrorSite({ name: "Laroza", bases: this.bases, marker: /لاروزا|laroza/i, sameSite: /laroza/i, log: ctx.log });
@@ -2160,7 +2161,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       id: "anime4up",
       name: "Anime4up",
       types: ["movie", "tv"],
-      bases: ["https://4f.gnli129.shop", "https://w1.anime4up.rest", "https://anime4up.cam"],
+      bases: ["https://4t.mcx8gh7.shop", "https://4f.gnli129.shop", "https://w1.anime4up.rest"],
       applies: (info) => info.isAnime,
       links(ctx) {
         return __async(this, null, function* () {
@@ -2257,7 +2258,7 @@ ${quality} \xB7 ${r.host || src.name}${r.label ? " \xB7 " + r.label : ""}`,
       id: "witanime",
       name: "WitAnime",
       types: ["movie", "tv"],
-      bases: ["https://witanime.onl", "https://witanime.site", "https://witanime.com"],
+      bases: ["https://witanime.onl"],
       applies: (info) => info.isAnime,
       links(ctx) {
         return __async(this, null, function* () {

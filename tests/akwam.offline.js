@@ -37,6 +37,7 @@ async function run(movieHtml, label) {
     [/akwam\.ss\/watch\//, WATCH],
   ]);
   delete require.cache[require.resolve("../src/index")];
+  require("../src/sources/akwam").bases = ["https://akwam.ss"]; // live list is empty while akwam is disabled
   const { getStreams } = require("../src/index");
   const log = console.log;
   console.log = () => {};

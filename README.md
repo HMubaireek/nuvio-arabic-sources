@@ -40,6 +40,7 @@ and range-probes the returned links.
 ## Sources
 
 Every site was probed from the development connection on 2026-11-06 (`npm run probe`, results in `domains.json`).
+`npm run ping` checks the URLs each source actually uses (ISP DNS and secure DNS) and lists disabled sources.
 "Live test" is `npm run test:live`: real TMDB lookups and real sites. A case only passes when a returned
 URL answers with HLS (`#EXTM3U`) or video bytes.
 
@@ -48,13 +49,13 @@ URL answers with HLS (`#EXTM3U`) or video bytes.
 | Source | Live domain (2026-11-06) | Content | Live test | Notes |
 |---|---|---|---|---|
 | **FaselHD** | `web11612x.faselhdx.one` | foreign movies & series, anime, Asian | 7/7 pass | Its player builds the quality list with javascript-obfuscator'd JS. `src/lib/deobf.js` decodes that statically (string array, rotation, base64, wrapper offsets) without evaluating any site code, giving 1080p/720p/360p + auto HLS. The stream URLs are bound to the viewer's IP, which is fine because the plugin runs on the playing device. The site rate-limits bursts (HTTP 429), so the client backs off and retries. The domain rotates (`web<N>x.faselhdx.*`); update `bases` in `src/sources/faselhd.js` when it moves. |
-| **Laroza** | `laroza1.lat` | Arabic & Turkish series, Arabic/foreign movies | 6/6 pass | `search.php` → `video.php` (season tabs + episodes) → `play.php` → `li[data-embed-url]`. Only okhd (480p) resolves here: vk / film77 / vidoba are SNI-blocked on this ISP and vidspeed's origin is down. On an unfiltered network more hosts will resolve. |
+| **Laroza** | `laroza-tv.lat` (home `/gaza.20`; 2026-11-25) | Arabic & Turkish series, Arabic/foreign movies | 6/6 pass | `search.php` → `video.php` (season tabs + episodes) → `play.php` → `li[data-embed-url]`. Only okhd (480p) resolves here: vk / film77 / vidoba are SNI-blocked on this ISP and vidspeed's origin is down. On an unfiltered network more hosts will resolve. |
 | **TopCinema** | `web6.topcinema.fan` (via topcinema.cam/.fan/.ink/.film, topcinemaa.co) | foreign movies & series | 3/5 pass | The 2 misses (The Dark Knight, The Last of Us) aren't in its catalogue. Hosts: vidtube 1080p, streamwish 720p, uqload, updown. |
-| **ArabSeed** | `m.asd.watch` (via arabseed.top, guide page m10.arabseed.one) | Arabic + foreign + Turkish | 4/6 pass | The 2 "dead" cases come from ArabSeed's own CDN node `cdnpszna01.cdn.makeup`, which answers `400 Request Header Or Cookie Too Large` even to a bare request (broken upstream). The other nodes play. |
+| **ArabSeed** | `m.asd.watch`, `arabseed.fyi`, m.arabseed.top, m.myseed.tv, asd.homes (secure DNS only from the dev ISP, 2026-11-25) | Arabic + foreign + Turkish | 4/6 pass | The 2 "dead" cases come from ArabSeed's own CDN node `cdnpszna01.cdn.makeup`, which answers `400 Request Header Or Cookie Too Large` even to a bare request (broken upstream). The other nodes play. |
 | **3isk** | `ww4.3ick.club` (via 3esk.onl) | Turkish series, subbed + dubbed | 3/3 pass | Kuruluş Osman S1E1 / S5E3, Diriliş Ertuğrul S1E2 |
-| **Anime4up** | rotating, `4f.gnli129.shop` today (discovered from anime4up.bond) | anime | 4/5 pass | Its own 1080p HLS players. The miss: the site only has Solo Leveling Season 2. |
+| **Anime4up** | rotating, `4t.mcx8gh7.shop` on 2026-11-25 (discovered from anime4up.bond) | anime | 4/5 pass | Its own 1080p HLS players. The miss: the site only has Solo Leveling Season 2. |
 | **WitAnime** | `witanime.onl` | anime | 2/5 pass | Many older episodes' host files are deleted (uqload "file expired", ok.ru blocked), and Solo Leveling S1 isn't listed. Kept because what it returns plays. |
-| **Akwam** (disabled) | `akwam.ss` (+ ak.sv, akwam.to/.it/.net) | Arabic + foreign | 0/9 now, offline test passes | **Disabled** (`enabled: false` in `src/sources/akwam.js`) because this ISP blocks it: DNS on the router resolver and TLS resets by SNI (1.1.1.1 resolves it). During one reachable window the full flow returned playable `downet.net` files (206 over http). `tests/akwam.offline.js` covers the direct and the `go.*` redirect paths. To re-enable, delete the `enabled: false` line and rebuild. `node tests/live.js akwam` still runs it. |
+| **Akwam** (disabled) | none: every known domain dead on 2026-11-25, `bases` is empty | Arabic + foreign | 0/9 now, offline test passes | **Disabled** (`enabled: false` in `src/sources/akwam.js`) because this ISP blocks it: DNS on the router resolver and TLS resets by SNI (1.1.1.1 resolves it). During one reachable window the full flow returned playable `downet.net` files (206 over http). `tests/akwam.offline.js` covers the direct and the `go.*` redirect paths. To re-enable, delete the `enabled: false` line and rebuild. `node tests/live.js akwam` still runs it. |
 
 ### Probed and left out
 
