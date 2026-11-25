@@ -1,12 +1,12 @@
 {
   "name": "Arab Hub",
-  "version": "1.2.0",
+  "version": "1.2.2",
   "scrapers": [
     {
       "id": "arabhub",
       "name": "Arab Hub",
       "description": "Arabic movies, series & anime in one scraper: FaselHD, TopCinema, ArabSeed, Laroza, 3isk, Anime4up, WitAnime with domain fallbacks (m3u8/mp4, 360p-1080p, ~20-35s)",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "HMubaireek",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/arabhub.js",

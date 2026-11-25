@@ -68,7 +68,14 @@ const stripYear = (s) => s.replace(/\b(?:19|20)\d{2}\b/g, " ").replace(/\s+/g, "
 function prepWanted(titles) {
   const out = [];
   const seen = {};
+  // "بخيت وعديلة 2 - الجردل والكنكة" / "Title: Subtitle": sites often list only the part before the subtitle
+  const all = [];
   for (const t of titles) {
+    all.push(t);
+    const head = String(t || "").split(/\s[-–—:]\s|:\s/)[0];
+    if (head && head !== t) all.push(head);
+  }
+  for (const t of all) {
     const c = stripYear(cleanTitle(t));
     const k = compact(c);
     if (k.length < 2 || seen[k]) continue;
@@ -113,6 +120,16 @@ function titleScoreOne(candidate, wanted) {
   return best;
 }
 
+// Part number of a movie listing: "بخيت وعديلة 2 الجزء الثاني" / "Part 2" / "Title 2" -> 2, no number -> 1.
+// Only a single trailing digit counts, so "Apollo 13" or "Blade Runner 2049" aren't read as parts.
+function partOf(text) {
+  const t = normAr(text);
+  const m = new RegExp(`(?:الجزء|part)\\s*[:\\-]?\\s*(\\d{1,2}(?!\\d)|${ORD_ALT})`, "i").exec(t);
+  if (m) return ordValue(m[1]) || 1;
+  const tail = /(?:^|\s)([1-9])$/.exec(stripYear(cleanTitle(text)));
+  return tail ? +tail[1] : 1;
+}
+
 /**
  * Rank site listings [{title, ...}] against TMDB info. Year in the listing (if any) must be within
  * `yearSlack` of TMDB's year for movies; for series the year is only a tie-breaker.
@@ -122,6 +139,8 @@ function rank(cands, info, opts) {
   const wanted = prepWanted(info.titles.slice(0, 30));
   const minScore = o.minScore || 70;
   const slack = o.yearSlack == null ? 1 : o.yearSlack;
+  // sequels share a title ("بخيت وعديلة 1" / "بخيت وعديلة 2"): a movie listing of another part loses
+  const wantedPart = info.type === "movie" ? Math.max.apply(null, info.titles.slice(0, 3).map(partOf)) : null;
   return cands
     .map((c) => {
       const score = titleScore(c.title, wanted);
@@ -133,6 +152,7 @@ function rank(cands, info, opts) {
         if (info.isAnime && tagged) s += 6;
         if (!info.isAnime && tagged) s -= 30;
       }
+      if (s > 0 && wantedPart && partOf(c.title) !== wantedPart) s -= 25;
       if (y && info.year) {
         const diff = Math.abs(y - info.year);
         if (info.type === "movie" && diff > slack) s = 0;
@@ -165,4 +185,4 @@ function queries(info, max) {
   return out.slice(0, max || 3);
 }
 
-module.exports = { normAr, cleanTitle, seasonOf, episodeOf, yearIn, titleScore, prepWanted, rank, queries };
+module.exports = { normAr, cleanTitle, seasonOf, episodeOf, yearIn, titleScore, prepWanted, rank, queries, partOf };

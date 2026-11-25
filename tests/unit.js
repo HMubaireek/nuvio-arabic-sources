@@ -1,7 +1,7 @@
 // Offline unit checks for the shared helpers. Run: node tests/unit.js
 const assert = require("assert");
 const { unpackAll } = require("../src/lib/unpack");
-const { cleanTitle, seasonOf, episodeOf, titleScore, prepWanted, rank } = require("../src/lib/match");
+const { cleanTitle, seasonOf, episodeOf, titleScore, prepWanted, rank, partOf } = require("../src/lib/match");
 const { findMedia, snapHeight } = require("../src/lib/hosts");
 const { b64decode } = require("../src/lib/html");
 const { animeSeason, pickEntry } = require("../src/lib/anime");
@@ -28,6 +28,19 @@ t("title cleaning strips noise, season, episode and ordinals", () => {
   // hamza seats fold (ؤ -> و) on both sides, so site and TMDB spellings meet
   assert.strictEqual(cleanTitle("مسلسل المؤسس عثمان مدبلج"), cleanTitle("المؤسس عثمان"));
   assert.strictEqual(cleanTitle("المؤسس عثمان"), "الموسس عثمان");
+});
+
+t("movie sequels: the listing's part must match (بخيت وعديلة 1 vs 2)", () => {
+  const listings = [
+    { title: "مشاهدة فيلم بخيت وعديلة 2 الجزء الثاني كامل اون لاين HD" },
+    { title: "مشاهدة فيلم بخيت وعديلة 1 الجزء الاول كامل اون لاين HD" },
+  ];
+  const p1 = rank(listings, { type: "movie", year: 1995, titles: ["Bakhit and Adeela", "بخيت وعديلة"] }, { minScore: 80 });
+  assert.ok(/الاول/.test(p1[0].title));
+  const p2 = rank(listings, { type: "movie", year: 1997, titles: ["Bakhit and Adeela 2", "بخيت وعديلة 2 - الجردل والكنكة"] }, { minScore: 80 });
+  assert.ok(/الثاني/.test(p2[0].title));
+  assert.strictEqual(partOf("Apollo 13"), 1);
+  assert.strictEqual(partOf("فيلم الفيل الازرق 2 2019"), 2);
 });
 
 t("title scoring + year gate", () => {

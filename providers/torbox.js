@@ -741,7 +741,14 @@ ${R.baseName(m.path)}`,
     function prepWanted(titles) {
       const out = [];
       const seen = {};
+      const all = [];
       for (const t of titles) {
+        all.push(t);
+        const head = String(t || "").split(/\s[-–—:]\s|:\s/)[0];
+        if (head && head !== t)
+          all.push(head);
+      }
+      for (const t of all) {
         const c = stripYear(cleanTitle(t));
         const k = compact(c);
         if (k.length < 2 || seen[k])
@@ -787,11 +794,20 @@ ${R.baseName(m.path)}`,
       }
       return best;
     }
+    function partOf(text) {
+      const t = normAr(text);
+      const m = new RegExp(`(?:\u0627\u0644\u062C\u0632\u0621|part)\\s*[:\\-]?\\s*(\\d{1,2}(?!\\d)|${ORD_ALT})`, "i").exec(t);
+      if (m)
+        return ordValue(m[1]) || 1;
+      const tail = /(?:^|\s)([1-9])$/.exec(stripYear(cleanTitle(text)));
+      return tail ? +tail[1] : 1;
+    }
     function rank(cands, info, opts) {
       const o = opts || {};
       const wanted = prepWanted(info.titles.slice(0, 30));
       const minScore = o.minScore || 70;
       const slack = o.yearSlack == null ? 1 : o.yearSlack;
+      const wantedPart = info.type === "movie" ? Math.max.apply(null, info.titles.slice(0, 3).map(partOf)) : null;
       return cands.map((c) => {
         const score = titleScore(c.title, wanted);
         const y = c.year || yearIn(c.title);
@@ -803,6 +819,8 @@ ${R.baseName(m.path)}`,
           if (!info.isAnime && tagged)
             s -= 30;
         }
+        if (s > 0 && wantedPart && partOf(c.title) !== wantedPart)
+          s -= 25;
         if (y && info.year) {
           const diff = Math.abs(y - info.year);
           if (info.type === "movie" && diff > slack)
@@ -835,7 +853,7 @@ ${R.baseName(m.path)}`,
           add(t);
       return out.slice(0, max || 3);
     }
-    module2.exports = { normAr, cleanTitle, seasonOf, episodeOf, yearIn, titleScore, prepWanted, rank, queries };
+    module2.exports = { normAr, cleanTitle, seasonOf, episodeOf, yearIn, titleScore, prepWanted, rank, queries, partOf };
   },
   /* 5: src/lib/html.js */
   function(module2, exports2, __req2) {
