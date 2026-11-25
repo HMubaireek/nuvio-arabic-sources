@@ -12,7 +12,7 @@ Settings → Plugins / Local scrapers → add repository → paste
 https://raw.githubusercontent.com/HMubaireek/nuvio-arabic-sources/refs/heads/main/manifest.json
 ```
 
-then enable **Arab Hub** and/or **TorBox**. Each one shows up as its own provider in Nuvio's stream list.
+then enable **Arab Hub**. TorBox isn't in this manifest because it needs your API key. See below.
 
 ## TorBox
 
@@ -20,8 +20,15 @@ then enable **Arab Hub** and/or **TorBox**. Each one shows up as its own provide
 torrents, usenet and web downloads. Add a release on torbox.app first, either from the dashboard search
 or with a magnet. Then open the title in Nuvio.
 
-- **Setup:** Nuvio → Settings → Plugins → TorBox → ⚙ → paste your API key (torbox.app → Settings → Account).
-  The key stays in Nuvio's plugin settings and is never part of this repo.
+- **Setup (personal build):** Nuvio's Android TV app runs plugins with `SCRAPER_SETTINGS` but has no
+  screen to fill it in, so the key is built in:
+  `npm run build && node scripts/build-personal.js <file-with-api-key>` writes `personal/manifest.json` +
+  `personal/torbox.js`. Upload both to a **secret** gist and add
+  `https://gist.githubusercontent.com/<you>/<gist-id>/raw/manifest.json` on nuvio.tv → Account → Plugins.
+  It syncs to every device and shows up as its own **TorBox (personal)** provider. Anyone with that URL can use the key.
+  `personal/` is git-ignored. On the phone/tablet app the plugin's ⚙ dialog (`onSettings`) overrides the built-in key.
+- **TV display:** the TV app shows only `name - quality` and `size` (as the description line), so `size` carries
+  `3.25 GB · Torrent · WEB-DL` plus the file name.
 - **Arabic + English matching:** the TMDB English, Arabic, original and alternative titles are compared with
   the release name, and so are consonant skeletons (`src/lib/translit.js`). That's how `Al.Sada.Al.Afadel.2025…` matches
   السادة الأفاضل and `El.Nos.S01E04…` matches النص. A transliteration-only match also needs the year. A movie

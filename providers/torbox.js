@@ -35,8 +35,13 @@ var __mods = [
     ];
     function settings() {
       const g = typeof globalThis !== "undefined" ? globalThis : {};
-      const s = g.SCRAPER_SETTINGS;
-      return s && typeof s === "object" ? s : {};
+      const embedded = g.TORBOX_EMBEDDED_SETTINGS && typeof g.TORBOX_EMBEDDED_SETTINGS === "object" ? g.TORBOX_EMBEDDED_SETTINGS : {};
+      const s = g.SCRAPER_SETTINGS && typeof g.SCRAPER_SETTINGS === "object" ? g.SCRAPER_SETTINGS : {};
+      const out = Object.assign({}, embedded);
+      for (const k of Object.keys(s))
+        if (s[k] !== "" && s[k] != null)
+          out[k] = s[k];
+      return out;
     }
     function onSettings2() {
       return [
@@ -210,7 +215,9 @@ var __mods = [
 ${details}`,
             url,
             quality,
-            size: m.size || void 0,
+            // Nuvio's TV app shows `size` as the stream's description line (verbatim), so make it readable
+            size: [fmtSize(m.size), m.k.label].concat(tags).filter(Boolean).join(" \xB7 ") + `
+${R.baseName(m.path)}`,
             headers: {},
             provider: "torbox"
           });

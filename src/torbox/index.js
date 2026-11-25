@@ -20,10 +20,16 @@ const KINDS = [
   { kind: "webdl", label: "Web", idParam: "web_id" },
 ];
 
+// Settings come from Nuvio's plugin settings dialog (phone/tablet app). Nuvio's Android TV app runs
+// plugins with SCRAPER_SETTINGS but has no screen to fill it in, so a personal build
+// (scripts/build-personal.js) can embed defaults as TORBOX_EMBEDDED_SETTINGS. Values set in the dialog win.
 function settings() {
   const g = typeof globalThis !== "undefined" ? globalThis : {};
-  const s = g.SCRAPER_SETTINGS;
-  return s && typeof s === "object" ? s : {};
+  const embedded = g.TORBOX_EMBEDDED_SETTINGS && typeof g.TORBOX_EMBEDDED_SETTINGS === "object" ? g.TORBOX_EMBEDDED_SETTINGS : {};
+  const s = g.SCRAPER_SETTINGS && typeof g.SCRAPER_SETTINGS === "object" ? g.SCRAPER_SETTINGS : {};
+  const out = Object.assign({}, embedded);
+  for (const k of Object.keys(s)) if (s[k] !== "" && s[k] != null) out[k] = s[k];
+  return out;
 }
 
 function onSettings() {
@@ -188,7 +194,8 @@ async function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
       title: `${R.baseName(m.path)}\n${details}`,
       url,
       quality,
-      size: m.size || undefined,
+      // Nuvio's TV app shows `size` as the stream's description line (verbatim), so make it readable
+      size: [fmtSize(m.size), m.k.label].concat(tags).filter(Boolean).join(" · ") + `\n${R.baseName(m.path)}`,
       headers: {},
       provider: "torbox",
     });

@@ -8,7 +8,7 @@ const path = require("path");
 const ROOT = path.join(__dirname, "..");
 const pkg = require(path.join(ROOT, "package.json"));
 const manifest = require(path.join(ROOT, "manifest.json"));
-const versionOf = (id) => (manifest.scrapers.find((s) => s.id === id) || {}).version || pkg.version;
+const versionOf = (id) => (manifest.scrapers.find((s) => s.id === id) || {}).version || (pkg[id] && pkg[id].version) || pkg.version;
 
 const TARGETS = [
   { id: "arabhub", entry: "src/index.js", out: "providers/arabhub.js", about: "Arab Hub - Nuvio local scraper aggregating Arabic movie/TV sources." },

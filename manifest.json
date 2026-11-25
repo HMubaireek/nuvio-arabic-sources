@@ -1,6 +1,6 @@
 {
   "name": "Arab Hub",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "scrapers": [
     {
       "id": "arabhub",
@@ -13,20 +13,6 @@
       "enabled": true,
       "formats": ["m3u8", "mp4"],
       "logo": "https://www.google.com/s2/favicons?domain=arabseed.top&sz=256",
-      "contentLanguage": ["ar", "en"]
-    },
-    {
-      "id": "torbox",
-      "name": "TorBox",
-      "description": "Plays files already in your TorBox library (torrents, usenet, web). Matches English, Arabic and transliterated titles (Al.Sada.Al.Afadel = السادة الأفاضل); links are fetched fresh at play time. Needs your TorBox API key in this plugin's settings.",
-      "version": "1.0.0",
-      "author": "HMubaireek",
-      "supportedTypes": ["movie", "tv"],
-      "filename": "providers/torbox.js",
-      "enabled": true,
-      "hasSettings": true,
-      "formats": ["mkv", "mp4"],
-      "logo": "https://www.google.com/s2/favicons?domain=torbox.app&sz=256",
       "contentLanguage": ["ar", "en"]
     }
   ]
